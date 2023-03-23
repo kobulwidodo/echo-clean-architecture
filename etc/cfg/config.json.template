@@ -1,0 +1,35 @@
+{
+  "Meta": {
+    "Title": "Golang App Template",
+    "Description": "This is golang app template",
+    "Host": "localhost:8080",
+    "Basepath": "/",
+    "Version": ""
+  },
+  "Gin": {
+    "Host": "localhost",
+    "Port": "8080",
+    "Mode": "debug",
+    "Timeout": "1000s",
+    "ShutdownTimeout": "10s",
+    "LogRequest": "true",
+    "LogResponse": "true",
+    "CORS": {
+      "Mode": "allowall"
+    },
+    "Meta": {
+      "Title": "Golang App Template",
+      "Description": "This is golang app template",
+      "Host": "localhost:8080",
+      "Basepath": "/",
+      "Version": ""
+    }
+  },
+  "SQL": {
+    "Host": "localhost",
+    "Username": "root",
+    "Password": "",
+    "Port": "3306",
+    "Database": "dbname"
+  }
+}
