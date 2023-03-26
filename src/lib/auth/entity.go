@@ -9,7 +9,6 @@ type User struct {
 	ID       uint
 	GuestId  string
 	Username string
-	Password string
-	Nama     string
+	Name     string
 	IsAdmin  bool
 }

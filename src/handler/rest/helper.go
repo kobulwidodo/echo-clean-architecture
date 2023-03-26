@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"github.com/labstack/echo/v4"
 )
 
-func (r *rest) httpRespSuccess(ctx *gin.Context, code int, message string, data interface{}) {
+func (r *rest) httpRespSuccess(ctx echo.Context, code int, message string, data interface{}) error {
 	resp := entity.Response{
 		Meta: entity.Meta{
 			Message: message,
@@ -20,10 +20,10 @@ func (r *rest) httpRespSuccess(ctx *gin.Context, code int, message string, data 
 		},
 		Data: data,
 	}
-	ctx.JSON(code, resp)
+	return ctx.JSON(code, resp)
 }
 
-func (r *rest) httpRespError(ctx *gin.Context, code int, err error) {
+func (r *rest) httpRespError(ctx echo.Context, code int, err error) error {
 	resp := entity.Response{
 		Meta: entity.Meta{
 			Message: err.Error(),
@@ -32,47 +32,46 @@ func (r *rest) httpRespError(ctx *gin.Context, code int, err error) {
 		},
 		Data: nil,
 	}
-	ctx.AbortWithStatusJSON(code, resp)
+	r.log.Error(err)
+	return ctx.JSON(code, resp)
 }
 
-func (r *rest) VerifyUser(ctx *gin.Context) {
-	authHeader := ctx.GetHeader("Authorization")
-	if authHeader == "" {
-		r.httpRespError(ctx, http.StatusUnauthorized, errors.New("empty token"))
-		return
+func (r *rest) VerifyUser() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			authHeader := c.Request().Header.Get("Authorization")
+			if authHeader == "" {
+				return r.httpRespError(c, http.StatusUnauthorized, errors.New("no authorization header"))
+			}
+
+			var tokenString string
+			_, err := fmt.Sscanf(authHeader, "Bearer %v", &tokenString)
+			if err != nil {
+				return r.httpRespError(c, http.StatusUnauthorized, errors.New("invalid token"))
+			}
+
+			token, err := r.ValidateToken(tokenString)
+			if err != nil {
+				return r.httpRespError(c, http.StatusUnauthorized, err)
+			}
+
+			claim, ok := token.Claims.(jwt.MapClaims)
+			if !ok || !token.Valid {
+				return r.httpRespError(c, http.StatusUnauthorized, errors.New("failed to claim token"))
+			}
+
+			user := entity.User{}
+			user, err = r.uc.User.GetById(uint(claim["id"].(float64)))
+			if err != nil {
+				return r.httpRespError(c, http.StatusUnauthorized, errors.New("error while getting user"))
+			}
+
+			ctx := c.Request().Context()
+			ctx = r.auth.SetUserAuthInfo(ctx, user.ConvertToAuthUser(), tokenString)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
 	}
-
-	var tokenString string
-	_, err := fmt.Sscanf(authHeader, "Bearer %v", &tokenString)
-	if err != nil {
-		r.httpRespError(ctx, http.StatusUnauthorized, errors.New("invalid token"))
-		return
-	}
-
-	token, err := r.ValidateToken(tokenString)
-	if err != nil {
-		r.httpRespError(ctx, http.StatusUnauthorized, err)
-		return
-	}
-
-	claim, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		r.httpRespError(ctx, http.StatusUnauthorized, errors.New("failed to claim token"))
-		return
-	}
-
-	user := entity.User{}
-	user, err = r.uc.User.GetById(uint(claim["id"].(float64)))
-	if err != nil {
-		r.httpRespError(ctx, http.StatusUnauthorized, errors.New("error while getting user"))
-		return
-	}
-
-	c := ctx.Request.Context()
-	c = r.auth.SetUserAuthInfo(c, user.ConvertToAuthUser(), tokenString)
-	ctx.Request = ctx.Request.WithContext(c)
-
-	ctx.Next()
 }
 
 func (r *rest) ValidateToken(encodedToken string) (*jwt.Token, error) {

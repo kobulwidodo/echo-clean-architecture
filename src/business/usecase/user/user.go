@@ -32,7 +32,7 @@ func Init(ad userDom.Interface, auth auth.Interface) Interface {
 func (a *user) Create(params entity.CreateUserParam) (entity.User, error) {
 	user := entity.User{
 		Username: params.Username,
-		Nama:     params.Nama,
+		Name:     params.Name,
 	}
 
 	hashPass, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
