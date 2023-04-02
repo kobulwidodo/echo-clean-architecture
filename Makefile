@@ -16,3 +16,8 @@ swag-install:
 run-app:
 	@make swaggo
 	@make run
+
+.PHONE: run-tests
+run-tests:
+	@go clean -cache
+	@go test -v -failfast `go list ./... | grep -i 'business'` -cover
